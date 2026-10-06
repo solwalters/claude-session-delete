@@ -12,7 +12,8 @@ plus its folder), `file-history/<id>`, `session-env/<id>`, and any `todos`/`debu
 - The globe button in the picker switches to all projects.
 
 Files go to the Recycle Bin by default (`claudeSessionDelete.useRecycleBin`).
-Open editor tabs for deleted sessions are closed first so the CLI exits. A
+Open editor tabs for deleted sessions are closed first so the CLI exits. For 10
+minutes afterwards, any metadata-only stub the exiting CLI writes back is removed. A
 session that is live in the sidebar can't be closed from here: switch the sidebar
 to another session, then delete it.
 

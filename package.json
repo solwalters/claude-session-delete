@@ -2,7 +2,7 @@
   "name": "claude-session-delete",
   "displayName": "Delete Session for Claude Code",
   "description": "Unofficial: adds a delete-session button to the Claude Code extension's panels.",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "publisher": "solwalters",
   "license": "MIT",
   "repository": {

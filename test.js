@@ -8,6 +8,17 @@ assert.ok(lib.tabLabelMatches('Short title', 'Short title'));
 assert.ok(!lib.tabLabelMatches('Other title…', 'VSCode extension delete session button'));
 assert.ok(!lib.tabLabelMatches('Claude Code', 'Something else'));
 
+// Shape of what an exiting CLI re-appends to a deleted transcript.
+const stub = [
+  '{"type":"custom-title","customTitle":"x","sessionId":"s"}',
+  '{"type":"mode","mode":"normal","sessionId":"s"}',
+  '{"type":"cost-state","sessionId":"s","totalCostUSD":0}',
+  '',
+].join('\n');
+assert.ok(!lib.hasConversation(stub));
+assert.ok(lib.hasConversation(stub + '{"type":"user","message":{"role":"user","content":"hi"}}\n'));
+assert.ok(!lib.hasConversation('{"type":"assist'));
+
 (async () => {
   const ws = process.argv[2] || process.cwd();
   const dirs = await lib.projectDirsFor([ws]);

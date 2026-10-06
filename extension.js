@@ -6,9 +6,21 @@ const lib = require('./lib');
 
 const CLAUDE_PANEL_VIEW_TYPE = 'claudeVSCodePanel';
 const PROCESS_EXIT_GRACE_MS = 1000;
-const RESPAWN_CHECK_MS = 3000;
+// A closed session's CLI can outlive its tab by a minute or more, then
+// re-append metadata to the deleted transcript on exit. Deleted sessions are
+// tombstoned for this long and any metadata-only stub is swept away.
+const TOMBSTONE_TTL_MS = 10 * 60 * 1000;
+const TOMBSTONE_POLL_MS = 2000;
+const TOMBSTONE_KEY = 'tombstones';
+
+let extContext;
+let pollTimer;
+let sweeping = false;
 
 function activate(context) {
+  extContext = context;
+  context.subscriptions.push({ dispose: () => clearInterval(pollTimer) });
+  ensurePolling();
   context.subscriptions.push(
     vscode.commands.registerCommand('claudeSessionDelete.deleteSession', () =>
       deleteFlow({ allProjects: false, preselectActiveTab: true })
@@ -126,8 +138,88 @@ async function deleteFlow({ allProjects, preselectActiveTab }) {
   await confirmAndDelete(chosen, sessions);
 }
 
+function useRecycleBin() {
+  return vscode.workspace.getConfiguration('claudeSessionDelete').get('useRecycleBin', true);
+}
+
+async function deletePaths(paths, useTrash) {
+  const failures = [];
+  for (const p of paths) {
+    try {
+      await vscode.workspace.fs.delete(vscode.Uri.file(p), { recursive: true, useTrash });
+    } catch (err) {
+      failures.push(`${p}: ${err.message || err}`);
+    }
+  }
+  return failures;
+}
+
+function getTombstones() {
+  const now = Date.now();
+  return extContext.globalState.get(TOMBSTONE_KEY, []).filter((t) => t.until > now);
+}
+
+async function addTombstones(sessions) {
+  const until = Date.now() + TOMBSTONE_TTL_MS;
+  const ids = new Set(sessions.map((s) => s.id));
+  const fresh = sessions.map(({ id, title, file, projectDir }) => ({ id, title, file, projectDir, until }));
+  await extContext.globalState.update(TOMBSTONE_KEY, [
+    ...getTombstones().filter((t) => !ids.has(t.id)),
+    ...fresh,
+  ]);
+  ensurePolling();
+}
+
+function ensurePolling() {
+  const pending = getTombstones().length > 0;
+  if (pending && !pollTimer) {
+    pollTimer = setInterval(sweepTombstones, TOMBSTONE_POLL_MS);
+  } else if (!pending && pollTimer) {
+    clearInterval(pollTimer);
+    pollTimer = undefined;
+  }
+}
+
+async function sweepTombstones() {
+  if (sweeping) return;
+  sweeping = true;
+  const resumed = [];
+  try {
+    for (const t of getTombstones()) {
+      const paths = await lib.sessionPaths(t);
+      if (paths.length === 0) continue;
+      let text = '';
+      try {
+        text = await fs.promises.readFile(t.file, 'utf8');
+      } catch {
+        // transcript absent; only side folders came back
+      }
+      if (lib.hasConversation(text)) {
+        resumed.push(t);
+        continue;
+      }
+      await deletePaths(paths, useRecycleBin());
+    }
+    const resumedIds = new Set(resumed.map((t) => t.id));
+    await extContext.globalState.update(
+      TOMBSTONE_KEY,
+      getTombstones().filter((t) => !resumedIds.has(t.id))
+    );
+  } finally {
+    sweeping = false;
+    ensurePolling();
+  }
+  if (resumed.length) {
+    vscode.window.showWarningMessage(
+      `Still in use in Claude, so new messages were saved after the delete: ${resumed
+        .map((t) => `"${t.title}"`)
+        .join(', ')}. Switch the sidebar to a different session, then delete again.`
+    );
+  }
+}
+
 async function confirmAndDelete(chosen, allSessions) {
-  const useTrash = vscode.workspace.getConfiguration('claudeSessionDelete').get('useRecycleBin', true);
+  const useTrash = useRecycleBin();
   const names = chosen.map((s) => `• ${s.title}`).join('\n');
   const verb = useTrash ? 'moved to the Recycle Bin' : 'permanently deleted';
   const ok = await vscode.window.showWarningMessage(
@@ -154,14 +246,9 @@ async function confirmAndDelete(chosen, allSessions) {
 
   const failures = [];
   for (const s of chosen) {
-    for (const p of await lib.sessionPaths(s)) {
-      try {
-        await vscode.workspace.fs.delete(vscode.Uri.file(p), { recursive: true, useTrash });
-      } catch (err) {
-        failures.push(`${p}: ${err.message || err}`);
-      }
-    }
+    failures.push(...(await deletePaths(await lib.sessionPaths(s), useTrash)));
   }
+  await addTombstones(chosen);
 
   if (failures.length) {
     vscode.window.showErrorMessage(`Some files could not be deleted:\n${failures.join('\n')}`);
@@ -170,19 +257,6 @@ async function confirmAndDelete(chosen, allSessions) {
       chosen.length === 1 ? `Deleted "${chosen[0].title}".` : `Deleted ${chosen.length} sessions.`
     );
   }
-
-  // A session still live in the sidebar keeps its CLI running and will
-  // recreate the transcript on its next write.
-  setTimeout(() => {
-    const respawned = chosen.filter((s) => fs.existsSync(s.file));
-    if (respawned.length) {
-      vscode.window.showWarningMessage(
-        `Still running in Claude, so its transcript came back: ${respawned
-          .map((s) => `"${s.title}"`)
-          .join(', ')}. Switch the sidebar to a different session, then delete again.`
-      );
-    }
-  }, RESPAWN_CHECK_MS);
 }
 
 function deactivate() {}

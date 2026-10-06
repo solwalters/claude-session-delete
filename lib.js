@@ -168,6 +168,22 @@ async function sessionPaths(session) {
   return existing;
 }
 
+// A CLI that was still alive when its transcript was deleted re-appends
+// metadata (title, mode, cost) on exit. Only user/assistant lines mean the
+// conversation actually continued.
+function hasConversation(text) {
+  for (const line of text.split('\n')) {
+    if (!line.startsWith('{')) continue;
+    try {
+      const t = JSON.parse(line).type;
+      if (t === 'user' || t === 'assistant') return true;
+    } catch {
+      // partial line mid-write
+    }
+  }
+  return false;
+}
+
 function normalizeTitle(s) {
   return s.replace(/\s+/g, ' ').trim();
 }
@@ -192,5 +208,6 @@ module.exports = {
   listSessions,
   sessionPaths,
   extractTitle,
+  hasConversation,
   tabLabelMatches,
 };
