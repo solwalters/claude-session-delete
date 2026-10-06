@@ -1,0 +1,4 @@
+test.js
+*.vsix
+.git/**
+.gitignore

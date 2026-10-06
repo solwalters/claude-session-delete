@@ -1,0 +1,85 @@
+{
+  "name": "claude-session-delete",
+  "displayName": "Delete Session for Claude Code",
+  "description": "Unofficial: adds a delete-session button to the Claude Code extension's panels.",
+  "version": "0.1.0",
+  "publisher": "solwalters",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/solwalters/claude-session-delete.git"
+  },
+  "bugs": {
+    "url": "https://github.com/solwalters/claude-session-delete/issues"
+  },
+  "homepage": "https://github.com/solwalters/claude-session-delete#readme",
+  "keywords": [
+    "claude",
+    "claude code",
+    "session",
+    "delete",
+    "anthropic"
+  ],
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [],
+  "contributes": {
+    "commands": [
+      {
+        "command": "claudeSessionDelete.deleteSession",
+        "title": "Delete Session…",
+        "category": "Claude Code",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "claudeSessionDelete.deleteSessionFromView",
+        "title": "Delete Session…",
+        "category": "Claude Code",
+        "icon": "$(trash)"
+      },
+      {
+        "command": "claudeSessionDelete.deleteSessionAllProjects",
+        "title": "Delete Session (All Projects)…",
+        "category": "Claude Code",
+        "icon": "$(trash)"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "claudeSessionDelete.deleteSession",
+          "when": "activeWebviewPanelId == 'claudeVSCodePanel'",
+          "group": "navigation@99"
+        }
+      ],
+      "view/title": [
+        {
+          "command": "claudeSessionDelete.deleteSessionFromView",
+          "when": "view == claudeVSCodeSidebar || view == claudeVSCodeSidebarSecondary || view == claudeVSCodeSessionsList",
+          "group": "navigation@99"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "claudeSessionDelete.deleteSessionFromView",
+          "when": "false"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Claude Code: Delete Session",
+      "properties": {
+        "claudeSessionDelete.useRecycleBin": {
+          "type": "boolean",
+          "default": true,
+          "description": "Move deleted session files to the Recycle Bin instead of deleting them permanently."
+        }
+      }
+    }
+  }
+}
