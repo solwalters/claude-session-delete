@@ -4,7 +4,6 @@ const fs = require('fs');
 const fsp = fs.promises;
 const path = require('path');
 const os = require('os');
-
 const FULL_READ_LIMIT = 8 * 1024 * 1024;
 const CHUNK = 1024 * 1024;
 const UUID_JSONL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.jsonl$/i;

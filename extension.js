@@ -12,15 +12,19 @@ const PROCESS_EXIT_GRACE_MS = 1000;
 const TOMBSTONE_TTL_MS = 10 * 60 * 1000;
 const TOMBSTONE_POLL_MS = 2000;
 const TOMBSTONE_KEY = 'tombstones';
+const NOTICE_KEY = 'pendingNotice';
 
 let extContext;
 let pollTimer;
 let sweeping = false;
 
+// Activates on startup (not just on command) so tombstones keep being swept
+// after a reload or the post-delete extension host restart.
 function activate(context) {
   extContext = context;
   context.subscriptions.push({ dispose: () => clearInterval(pollTimer) });
-  ensurePolling();
+  sweepTombstones();
+  showPendingNotice();
   context.subscriptions.push(
     vscode.commands.registerCommand('claudeSessionDelete.deleteSession', () =>
       deleteFlow({ allProjects: false, preselectActiveTab: true })
@@ -220,11 +224,19 @@ async function sweepTombstones() {
 
 async function confirmAndDelete(chosen, allSessions) {
   const useTrash = useRecycleBin();
+  const restart = restartAfterDelete();
   const names = chosen.map((s) => `• ${s.title}`).join('\n');
   const verb = useTrash ? 'moved to the Recycle Bin' : 'permanently deleted';
+  let detail = `${names}\n\nTranscripts and file history will be ${verb}.`;
+  if (restart) {
+    const resumes = vscode.workspace.getConfiguration('claudeCode').get('continueAfterReload', true);
+    detail += resumes
+      ? '\n\nExtensions will then restart to refresh Claude Code. Other Claude sessions continue where they left off.'
+      : '\n\nExtensions will then restart to refresh Claude Code. Running Claude sessions in other tabs will be interrupted.';
+  }
   const ok = await vscode.window.showWarningMessage(
     chosen.length === 1 ? 'Delete this Claude session?' : `Delete ${chosen.length} Claude sessions?`,
-    { modal: true, detail: `${names}\n\nTranscripts and file history will be ${verb}.` },
+    { modal: true, detail },
     'Delete'
   );
   if (ok !== 'Delete') return;
@@ -252,11 +264,29 @@ async function confirmAndDelete(chosen, allSessions) {
 
   if (failures.length) {
     vscode.window.showErrorMessage(`Some files could not be deleted:\n${failures.join('\n')}`);
-  } else {
-    vscode.window.showInformationMessage(
-      chosen.length === 1 ? `Deleted "${chosen[0].title}".` : `Deleted ${chosen.length} sessions.`
-    );
+    return;
   }
+  const done = chosen.length === 1 ? `Deleted "${chosen[0].title}".` : `Deleted ${chosen.length} sessions.`;
+  if (!restart) {
+    vscode.window.showInformationMessage(done);
+    return;
+  }
+  // The Claude extension only rebuilds its session list on startup, so
+  // restart the extension host. The notice is shown by the next activation.
+  await extContext.globalState.update(NOTICE_KEY, `${done} Claude Code was restarted to refresh its list.`);
+  await sweepTombstones();
+  await vscode.commands.executeCommand('workbench.action.restartExtensionHost');
+}
+
+function restartAfterDelete() {
+  return vscode.workspace.getConfiguration('claudeSessionDelete').get('restartAfterDelete', true);
+}
+
+async function showPendingNotice() {
+  const notice = extContext.globalState.get(NOTICE_KEY);
+  if (!notice) return;
+  await extContext.globalState.update(NOTICE_KEY, undefined);
+  vscode.window.showInformationMessage(notice);
 }
 
 function deactivate() {}

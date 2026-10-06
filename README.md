@@ -12,6 +12,9 @@ plus its folder), `file-history/<id>`, `session-env/<id>`, and any `todos`/`debu
 - The globe button in the picker switches to all projects.
 
 Files go to the Recycle Bin by default (`claudeSessionDelete.useRecycleBin`).
+Afterwards the extension host restarts so Claude Code re-reads its session list
+(`claudeSessionDelete.restartAfterDelete`). Other Claude sessions resume where they
+left off when `claudeCode.continueAfterReload` is on, which is the default.
 Open editor tabs for deleted sessions are closed first so the CLI exits. For 10
 minutes afterwards, any metadata-only stub the exiting CLI writes back is removed. A
 session that is live in the sidebar can't be closed from here: switch the sidebar

@@ -2,7 +2,7 @@
   "name": "claude-session-delete",
   "displayName": "Delete Session for Claude Code",
   "description": "Unofficial: adds a delete-session button to the Claude Code extension's panels.",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "publisher": "solwalters",
   "license": "MIT",
   "repository": {
@@ -27,7 +27,9 @@
     "Other"
   ],
   "main": "./extension.js",
-  "activationEvents": [],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
   "contributes": {
     "commands": [
       {
@@ -78,6 +80,11 @@
           "type": "boolean",
           "default": true,
           "description": "Move deleted session files to the Recycle Bin instead of deleting them permanently."
+        },
+        "claudeSessionDelete.restartAfterDelete": {
+          "type": "boolean",
+          "default": true,
+          "description": "After deleting, restart the extension host so Claude Code refreshes its session list. Other Claude sessions resume if claudeCode.continueAfterReload is on."
         }
       }
     }
