@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- New setting `claudeSessionDelete.resetExtensionsOnDelete`: Always (default), Ask, or Never. Ask prompts after each delete and can switch to Always. Replaces `claudeSessionDelete.restartAfterDelete`.
+- Marketplace icon.
+- Added PUBLISHING.md.
+
 ## 0.2.0
 
 - After deleting, restart the extension host so Claude Code refreshes its session list (`claudeSessionDelete.restartAfterDelete`, on by default). Other sessions resume when `claudeCode.continueAfterReload` is on.
